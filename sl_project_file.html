@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>More Slurred Audio Recorder</title>
+</head>
+<body>
+    <h1>Record and Slur Your Speech</h1>
+    <button id="startBtn">Start Recording</button>
+    <button id="stopBtn" disabled>Stop Recording</button>
+    <h3>Recorded and Slurred Audio:</h3>
+    <audio id="audioPlayer" controls></audio>
+
+    <script>
+        'use strict';
+        let mediaRecorder;
+        let audioChunks = [];
+
+        // Set up the media recorder and get access to the microphone
+        async function setupRecorder() {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+
+            // Collect audio data chunks during recording
+            mediaRecorder.ondataavailable = event => {
+                audioChunks.push(event.data);
+            };
+
+            // When recording stops, process and apply the slurring effect
+            mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                const audioUrl = URL.createObjectURL(audioBlob);
+                await applySlurEffect(audioUrl);  // Apply slurring effect to the recording
+            };
+        }
+
+        // Start recording
+        document.getElementById('startBtn').addEventListener('click', () => {
+            audioChunks = [];  // Reset any previous recording
+            mediaRecorder.start();
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+        });
+
+        // Stop recording
+        document.getElementById('stopBtn').addEventListener('click', () => {
+            mediaRecorder.stop();
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+        });
+
+        // Initialize recorder on page load
+        window.onload = setupRecorder;
+
+        // Apply slurring effect to the audio
+        async function applySlurEffect(audioUrl) {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const audioElement = new Audio(audioUrl);
+            const audioSource = audioContext.createMediaElementSource(audioElement);
+
+            // Create AudioNodes for effects
+            const gainNode = audioContext.createGain();
+            const delayNode = audioContext.createDelay();
+            const distortionNode = audioContext.createWaveShaper();
+
+            // Set parameters for slurring effect
+            gainNode.gain.setValueAtTime(1.2, audioContext.currentTime);  // Slight volume increase
+            delayNode.delayTime.setValueAtTime(0.4, audioContext.currentTime);  // Longer delay to simulate more slurring
+
+            // Apply distortion for roughness (increased for more slurring)
+            distortionNode.curve = makeDistortionCurve(800); // Stronger distortion amount
+            distortionNode.oversample = '4x';
+
+            // Apply pitch shift (slow down audio to simulate slurring)
+            audioElement.playbackRate = 0.5;  // Further slow it down for a stronger slurring effect
+
+            // Connect the audio nodes to create the chain
+            audioSource.connect(gainNode);
+            gainNode.connect(distortionNode);
+            distortionNode.connect(delayNode);
+            delayNode.connect(audioContext.destination);
+
+            // Play the audio with slur effect applied
+            audioElement.play();
+
+            // Set the audio source for playback in the player
+            const audioPlayer = document.getElementById('audioPlayer');
+            audioPlayer.src = audioUrl;  // Set the recorded audio as the source
+        }
+
+        // Create a stronger distortion curve
+        function makeDistortionCurve(amount) {
+            const curve = new Float32Array(44100);
+            const deg = Math.PI / 180;
+            for (let i = 0; i < 44100; i++) {
+                curve[i] = (Math.PI - Math.PI / 2) * (i / 44100) * amount;
+            }
+            return curve;
+        }
+    </script>
+</body>
+</html>
