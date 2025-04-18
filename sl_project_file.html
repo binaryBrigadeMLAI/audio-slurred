@@ -17,79 +17,64 @@
         let mediaRecorder;
         let audioChunks = [];
 
-        // Set up the media recorder and get access to the microphone
         async function setupRecorder() {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(stream);
 
-            // Collect audio data chunks during recording
             mediaRecorder.ondataavailable = event => {
                 audioChunks.push(event.data);
             };
 
-            // When recording stops, process and apply the slurring effect
             mediaRecorder.onstop = async () => {
                 const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
                 const audioUrl = URL.createObjectURL(audioBlob);
-                await applySlurEffect(audioUrl);  // Apply slurring effect to the recording
+                await applySlurEffect(audioUrl);  
             };
         }
 
-        // Start recording
         document.getElementById('startBtn').addEventListener('click', () => {
-            audioChunks = [];  // Reset any previous recording
+            audioChunks = [];  
             mediaRecorder.start();
             document.getElementById('startBtn').disabled = true;
             document.getElementById('stopBtn').disabled = false;
         });
 
-        // Stop recording
         document.getElementById('stopBtn').addEventListener('click', () => {
             mediaRecorder.stop();
             document.getElementById('startBtn').disabled = false;
             document.getElementById('stopBtn').disabled = true;
         });
 
-        // Initialize recorder on page load
         window.onload = setupRecorder;
 
-        // Apply slurring effect to the audio
         async function applySlurEffect(audioUrl) {
             const audioContext = new (window.AudioContext || window.webkitAudioContext)();
             const audioElement = new Audio(audioUrl);
             const audioSource = audioContext.createMediaElementSource(audioElement);
 
-            // Create AudioNodes for effects
             const gainNode = audioContext.createGain();
             const delayNode = audioContext.createDelay();
             const distortionNode = audioContext.createWaveShaper();
 
-            // Set parameters for slurring effect
-            gainNode.gain.setValueAtTime(1.2, audioContext.currentTime);  // Slight volume increase
-            delayNode.delayTime.setValueAtTime(0.4, audioContext.currentTime);  // Longer delay to simulate more slurring
+            gainNode.gain.setValueAtTime(1.2, audioContext.currentTime);
+            delayNode.delayTime.setValueAtTime(0.4, audioContext.currentTime); 
 
-            // Apply distortion for roughness (increased for more slurring)
-            distortionNode.curve = makeDistortionCurve(800); // Stronger distortion amount
+            distortionNode.curve = makeDistortionCurve(800); 
             distortionNode.oversample = '4x';
 
-            // Apply pitch shift (slow down audio to simulate slurring)
-            audioElement.playbackRate = 0.5;  // Further slow it down for a stronger slurring effect
+            audioElement.playbackRate = 0.5; 
 
-            // Connect the audio nodes to create the chain
             audioSource.connect(gainNode);
             gainNode.connect(distortionNode);
             distortionNode.connect(delayNode);
             delayNode.connect(audioContext.destination);
 
-            // Play the audio with slur effect applied
             audioElement.play();
 
-            // Set the audio source for playback in the player
             const audioPlayer = document.getElementById('audioPlayer');
-            audioPlayer.src = audioUrl;  // Set the recorded audio as the source
+            audioPlayer.src = audioUrl; 
         }
 
-        // Create a stronger distortion curve
         function makeDistortionCurve(amount) {
             const curve = new Float32Array(44100);
             const deg = Math.PI / 180;
